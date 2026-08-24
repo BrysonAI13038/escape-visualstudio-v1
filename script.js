@@ -73,8 +73,8 @@ async function setupCamera() {
 // ========================================
 
 const MOTION_INTERVAL = 100;
-const MOTION_DEAD_ZONE = 2.5;
-const HIGH_MOTION_LEVEL = 18;
+const MOTION_DEAD_ZONE = 3;
+const HIGH_MOTION_LEVEL = 14;
 
 let previousFrame = null;
 let lastMotionSample = 0;
@@ -110,7 +110,7 @@ function analyzeMotion(time) {
 
         if (previousFrame) {
             const averageDifference = totalDifference / currentFrame.length;
-            systemState.targetTension = Math.max(
+            const detectedMotion = Math.max(
                 0,
                 Math.min(
                     1,
@@ -118,6 +118,9 @@ function analyzeMotion(time) {
                         (HIGH_MOTION_LEVEL - MOTION_DEAD_ZONE)
                 )
             );
+
+            // Preserve the dead zone while making meaningful motion more legible.
+            systemState.targetTension = Math.pow(detectedMotion, 0.75);
         }
 
         previousFrame = currentFrame;
@@ -139,7 +142,8 @@ function updateTension(time) {
         ? Math.min((time - previousDrawTime) / 1000, 0.1)
         : 0;
     const isIncreasing = systemState.targetTension > systemState.tension;
-    const responseRate = isIncreasing ? 4 : 0.8;
+    // Motion startles the system quickly; stillness releases it deliberately.
+    const responseRate = isIncreasing ? 10 : 0.55;
     const smoothing = 1 - Math.exp(-responseRate * elapsed);
 
     systemState.tension +=
@@ -184,8 +188,9 @@ function drawAtmosphere(centerX, centerY, breathing, tension) {
     ctx.fillStyle = BACKGROUND;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-    const glowRadius = 220 + breathing * 25 + tension * 45;
-    const glowOpacity = 0.10 + breathing * 0.015 + tension * 0.05;
+    // Tension pulls the atmosphere inward and raises its intensity.
+    const glowRadius = 220 + breathing * 25 - tension * 55;
+    const glowOpacity = 0.10 + breathing * 0.015 + tension * 0.16;
     const glow = ctx.createRadialGradient(
         centerX,
         centerY,
@@ -202,19 +207,21 @@ function drawAtmosphere(centerX, centerY, breathing, tension) {
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 }
 
-function drawRings(tension) {
-    const separation = tension * 14;
-    const rotation = tension * 0.12;
-
+function drawRingGroup(segments, tension, separation, rotation) {
     ctx.save();
     ctx.rotate(rotation);
     ctx.lineWidth = 2.5;
 
-    ringSegments.forEach(function(segment) {
+    segments.forEach(function(segment, index) {
+        const middleAngle = (segment.start + segment.end) / 2;
+        const fragmentShift = tension * (4 + (index % 3) * 4);
+        const shiftX = Math.cos(middleAngle) * fragmentShift;
+        const shiftY = Math.sin(middleAngle) * fragmentShift;
+
         ctx.beginPath();
         ctx.arc(
-            0,
-            0,
+            shiftX,
+            shiftY,
             segment.radius + separation,
             segment.start,
             segment.end
@@ -222,14 +229,21 @@ function drawRings(tension) {
         ctx.stroke();
     });
 
-    ringPoints.forEach(function(point) {
+    ctx.restore();
+}
+
+function drawPointGroup(points, separation, rotation) {
+    ctx.save();
+    ctx.rotate(rotation);
+
+    points.forEach(function(point) {
         const distance = Math.hypot(point.x, point.y);
-        const offset = distance === 0 ? 0 : separation / distance;
+        const scale = distance === 0 ? 1 : (distance + separation) / distance;
 
         ctx.beginPath();
         ctx.arc(
-            point.x + point.x * offset,
-            point.y + point.y * offset,
+            point.x * scale,
+            point.y * scale,
             point.radius,
             0,
             Math.PI * 2
@@ -240,8 +254,34 @@ function drawRings(tension) {
     ctx.restore();
 }
 
-function drawCross() {
+function drawRings(tension, breathing) {
+    const outerSeparation = tension * 42;
+    const innerSeparation = tension * 30;
+    const outerRotation = tension * 0.24;
+    const innerRotation = tension * -0.18;
+    const outerSegments = ringSegments.filter(function(segment) {
+        return segment.radius === 88;
+    });
+    const innerSegments = ringSegments.filter(function(segment) {
+        return segment.radius === 72;
+    });
+    const outerPoints = ringPoints.filter(function(point) {
+        return Math.hypot(point.x, point.y) > 90;
+    });
+    const innerPoints = ringPoints.filter(function(point) {
+        return Math.hypot(point.x, point.y) <= 90;
+    });
+
+    ctx.shadowBlur = 8 + breathing * 1.5 + tension * 24;
+    drawRingGroup(outerSegments, tension, outerSeparation, outerRotation);
+    drawRingGroup(innerSegments, tension, innerSeparation, innerRotation);
+    drawPointGroup(outerPoints, outerSeparation, outerRotation);
+    drawPointGroup(innerPoints, innerSeparation, innerRotation);
+}
+
+function drawCross(breathing, tension) {
     // The cross remains geometrically stable in every system state.
+    ctx.shadowBlur = 8 + breathing * 1.5 + tension * 8;
     ctx.lineWidth = 6;
     ctx.beginPath();
     ctx.moveTo(0, -42);
@@ -265,10 +305,9 @@ function drawSigil(centerX, centerY, breathing, tension) {
     ctx.fillStyle = GOLD;
     ctx.lineCap = "round";
     ctx.shadowColor = "rgba(234, 216, 182, 0.65)";
-    ctx.shadowBlur = 8 + breathing * 1.5 + tension * 5;
 
-    drawRings(tension);
-    drawCross();
+    drawRings(tension, breathing);
+    drawCross(breathing, tension);
 
     ctx.restore();
 }

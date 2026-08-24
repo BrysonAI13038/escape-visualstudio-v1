@@ -3,15 +3,18 @@
 // Movement creates tension. Stillness creates calm.
 // ========================================
 
+// ========================================
+// 1. CANVAS SETUP
+// ========================================
+
 const canvas = document.getElementById("systemCanvas");
 const ctx = canvas.getContext("2d");
-
 const GOLD = "#ead8b6";
 const BACKGROUND = "#020202";
 
-// Camera movement will update this value in the next stage.
 const systemState = {
-    tension: 0
+    tension: 0,
+    targetTension: 0
 };
 
 let canvasWidth = 0;
@@ -31,6 +34,127 @@ function resizeCanvas() {
 
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
+
+// ========================================
+// 2. CAMERA SETUP
+// ========================================
+
+const motionVideo = document.createElement("video");
+motionVideo.muted = true;
+motionVideo.playsInline = true;
+
+const motionCanvas = document.createElement("canvas");
+const motionCtx = motionCanvas.getContext("2d", { willReadFrequently: true });
+const MOTION_WIDTH = 64;
+const MOTION_HEIGHT = 48;
+
+motionCanvas.width = MOTION_WIDTH;
+motionCanvas.height = MOTION_HEIGHT;
+
+async function setupCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.info("ESCAPE: Camera input is unavailable; running in calm mode.");
+        return;
+    }
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        motionVideo.srcObject = stream;
+        await motionVideo.play();
+        requestAnimationFrame(analyzeMotion);
+    } catch (error) {
+        systemState.targetTension = 0;
+        console.info("ESCAPE: Camera input is unavailable; running in calm mode.");
+    }
+}
+
+// ========================================
+// 3. MOTION DETECTION
+// ========================================
+
+const MOTION_INTERVAL = 100;
+const MOTION_DEAD_ZONE = 2.5;
+const HIGH_MOTION_LEVEL = 18;
+
+let previousFrame = null;
+let lastMotionSample = 0;
+
+function analyzeMotion(time) {
+    if (time - lastMotionSample >= MOTION_INTERVAL) {
+        lastMotionSample = time;
+        motionCtx.drawImage(motionVideo, 0, 0, MOTION_WIDTH, MOTION_HEIGHT);
+
+        const pixels = motionCtx.getImageData(
+            0,
+            0,
+            MOTION_WIDTH,
+            MOTION_HEIGHT
+        ).data;
+        const currentFrame = new Uint8Array(MOTION_WIDTH * MOTION_HEIGHT);
+
+        let totalDifference = 0;
+
+        for (let pixel = 0; pixel < currentFrame.length; pixel += 1) {
+            const channel = pixel * 4;
+            const brightness =
+                pixels[channel] * 0.299 +
+                pixels[channel + 1] * 0.587 +
+                pixels[channel + 2] * 0.114;
+
+            currentFrame[pixel] = brightness;
+
+            if (previousFrame) {
+                totalDifference += Math.abs(brightness - previousFrame[pixel]);
+            }
+        }
+
+        if (previousFrame) {
+            const averageDifference = totalDifference / currentFrame.length;
+            systemState.targetTension = Math.max(
+                0,
+                Math.min(
+                    1,
+                    (averageDifference - MOTION_DEAD_ZONE) /
+                        (HIGH_MOTION_LEVEL - MOTION_DEAD_ZONE)
+                )
+            );
+        }
+
+        previousFrame = currentFrame;
+    }
+
+    requestAnimationFrame(analyzeMotion);
+}
+
+setupCamera();
+
+// ========================================
+// 4. TENSION SMOOTHING
+// ========================================
+
+let previousDrawTime = 0;
+
+function updateTension(time) {
+    const elapsed = previousDrawTime
+        ? Math.min((time - previousDrawTime) / 1000, 0.1)
+        : 0;
+    const isIncreasing = systemState.targetTension > systemState.tension;
+    const responseRate = isIncreasing ? 4 : 0.8;
+    const smoothing = 1 - Math.exp(-responseRate * elapsed);
+
+    systemState.tension +=
+        (systemState.targetTension - systemState.tension) * smoothing;
+
+    if (systemState.tension < 0.001 && systemState.targetTension === 0) {
+        systemState.tension = 0;
+    }
+
+    previousDrawTime = time;
+}
+
+// ========================================
+// 5. DRAWING
+// ========================================
 
 // The original two-ring segment pattern.
 const ringSegments = [
@@ -150,6 +274,8 @@ function drawSigil(centerX, centerY, breathing, tension) {
 }
 
 function drawSystem(time) {
+    updateTension(time);
+
     const centerX = canvasWidth / 2;
     const centerY = canvasHeight / 2;
     const breathing = Math.sin(time * 0.0008);

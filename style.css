@@ -8,19 +8,21 @@ body {
     background: #080808;
     color: #eeeeee;
     font-family: Arial, sans-serif;
+    min-height: 100vh;
 }
 
 main {
     width: 90%;
     max-width: 1000px;
     margin: 0 auto;
-    padding: 60px 0;
+    padding: 64px 0 96px;
 }
 
 h1 {
     font-size: 48px;
     letter-spacing: 10px;
     font-weight: 400;
+    line-height: 1;
 }
 
 .subtitle {
@@ -31,32 +33,73 @@ h1 {
 }
 
 .test {
-    margin-top: 80px;
+    margin-top: 72px;
 }
 
-h2 {
-    font-size: 16px;
-    font-weight: 400;
-    letter-spacing: 3px;
-    margin-bottom: 20px;
-}
-
-canvas {
+#systemCanvas {
     display: block;
     width: 100%;
-    height: 500px;
+    height: 600px;
     background: #050505;
-    border: 1px solid #222222;
+    border: 1px solid #242424;
 }
 
-.rule {
+.system-panel {
     max-width: 700px;
-    margin-top: 18px;
-    color: #888888;
+    padding-top: 32px;
+    color: #8a8a8a;
     font-size: 14px;
     line-height: 1.7;
 }
 
-.rule strong {
-    color: #dddddd;
+.system-panel h2 {
+    margin-top: 28px;
+    margin-bottom: 6px;
+    color: #d5d5d5;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.system-panel h2:first-child {
+    margin-top: 0;
+}
+
+.rule {
+    color: #b0b0b0;
+}
+
+.reflection-placeholder {
+    color: #666666;
+}
+
+@media (max-width: 700px) {
+    main {
+        width: 92%;
+        padding: 40px 0 64px;
+    }
+
+    h1 {
+        font-size: 38px;
+        letter-spacing: 8px;
+    }
+
+    .test {
+        margin-top: 48px;
+    }
+
+    #systemCanvas {
+        height: 420px;
+    }
+
+    .system-panel {
+        padding-top: 24px;
+    }
+}
+
+@media (max-width: 440px) {
+    #systemCanvas {
+        height: 320px;
+    }
 }

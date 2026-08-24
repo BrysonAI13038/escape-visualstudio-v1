@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESCAPE — Visual Rule Tests</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <main>
+        <h1>ESCAPE</h1>
+        <p class="subtitle">VISUAL RULE TESTS</p>
+
+        <section class="test">
+            <h2>01 — SIGIL SEED</h2>
+
+            <canvas id="sigilCanvas"></canvas>
+
+            <p class="rule">
+                <strong>Rule:</strong> The sigil is built from a small set of geometric forms that remain recognizable while rotating and subtly changing scale.
+    I tested the movement and adjusted the rotation and pulse speeds so the transformation felt slow and controlled rather than distracting.
+            </p>
+        </section>
+
+<section class="test">
+    <h2>02 — BEHAVIOR RULE</h2>
+
+    <canvas id="behaviorCanvas"></canvas>
+
+    <p class="rule">
+        <strong>Rule:</strong> Forms gradually dissolve when activated instead of disappearing immediately.
+    A mouse click controls the activation, and I adjusted the dissolve speed so the transition felt controlled rather than abrupt.
+    </p>
+</section>
+
+<section class="test">
+    <h2>03 — GESTURE LANGUAGE</h2>
+
+    <canvas id="gestureCanvas"></canvas>
+
+    <p class="rule">
+        <strong>Rule:</strong> The form responds to the user's proximity rather than a direct click.
+    Mouse position controls the amount of separation and tension in the form, and I kept the response subtle enough that the original shape remains recognizable.
+    </p>
+</section>
+
+<section class="test">
+    <h2>04 — ATMOSPHERE CONSTRAINT</h2>
+
+    <canvas id="atmosphereCanvas"></canvas>
+
+    <p class="rule">
+        <strong>Rule:</strong>  Light is concentrated around the active form while the surrounding space remains dark.
+    The Canvas uses a slow breathing glow as its only atmospheric change, and I kept the movement subtle so it changes the mood without creating visual noise.
+    </p>
+</section>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -9,6 +9,8 @@
 
 const canvas = document.getElementById("systemCanvas");
 const ctx = canvas.getContext("2d");
+const tensionValue = document.getElementById("tensionValue");
+const tensionFill = document.getElementById("tensionFill");
 const GOLD = "#ead8b6";
 const BACKGROUND = "#020202";
 
@@ -74,10 +76,12 @@ async function setupCamera() {
 
 const MOTION_INTERVAL = 100;
 const MOTION_DEAD_ZONE = 3;
-const HIGH_MOTION_LEVEL = 14;
+const HIGH_MOTION_LEVEL = 11;
+const PEAK_HOLD_DURATION = 400;
 
 let previousFrame = null;
 let lastMotionSample = 0;
+let peakHoldUntil = 0;
 
 function analyzeMotion(time) {
     if (time - lastMotionSample >= MOTION_INTERVAL) {
@@ -120,7 +124,33 @@ function analyzeMotion(time) {
             );
 
             // Preserve the dead zone while making meaningful motion more legible.
-            systemState.targetTension = Math.pow(detectedMotion, 0.75);
+            const mappedMotion = Math.pow(detectedMotion, 0.72);
+
+            if (mappedMotion > systemState.targetTension) {
+                // Fast attack: meaningful increases register almost immediately.
+                systemState.targetTension +=
+                    (mappedMotion - systemState.targetTension) * 0.82;
+                peakHoldUntil = time + PEAK_HOLD_DURATION;
+            } else if (
+                mappedMotion > 0.08 &&
+                mappedMotion >= systemState.targetTension * 0.85
+            ) {
+                // Comparable continued motion refreshes the brief peak hold.
+                systemState.targetTension = Math.max(
+                    systemState.targetTension,
+                    mappedMotion
+                );
+                peakHoldUntil = time + PEAK_HOLD_DURATION;
+            } else if (time >= peakHoldUntil) {
+                // Release the motion envelope only after measured motion falls.
+                systemState.targetTension +=
+                    (mappedMotion - systemState.targetTension) * 0.16;
+            }
+
+            systemState.targetTension = Math.max(
+                0,
+                Math.min(1, systemState.targetTension)
+            );
         }
 
         previousFrame = currentFrame;
@@ -142,12 +172,15 @@ function updateTension(time) {
         ? Math.min((time - previousDrawTime) / 1000, 0.1)
         : 0;
     const isIncreasing = systemState.targetTension > systemState.tension;
-    // Motion startles the system quickly; stillness releases it deliberately.
-    const responseRate = isIncreasing ? 10 : 0.55;
+    // Sustained motion builds tension progressively; stillness releases it
+    // more slowly so the system settles with intention.
+    const responseRate = isIncreasing ? 1.8 : 0.42;
     const smoothing = 1 - Math.exp(-responseRate * elapsed);
 
     systemState.tension +=
         (systemState.targetTension - systemState.tension) * smoothing;
+
+    systemState.tension = Math.max(0, Math.min(1, systemState.tension));
 
     if (systemState.tension < 0.001 && systemState.targetTension === 0) {
         systemState.tension = 0;
@@ -189,8 +222,9 @@ function drawAtmosphere(centerX, centerY, breathing, tension) {
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     // Tension pulls the atmosphere inward and raises its intensity.
-    const glowRadius = 220 + breathing * 25 - tension * 55;
-    const glowOpacity = 0.10 + breathing * 0.015 + tension * 0.16;
+    const calmRadius = Math.max(260, Math.min(canvasWidth, canvasHeight) * 0.54);
+    const glowRadius = calmRadius + breathing * 28 - tension * calmRadius * 0.2;
+    const glowOpacity = 0.09 + breathing * 0.015 + tension * 0.2;
     const glow = ctx.createRadialGradient(
         centerX,
         centerY,
@@ -205,16 +239,31 @@ function drawAtmosphere(centerX, centerY, breathing, tension) {
 
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+    // A restrained edge shadow belongs to the same light-and-dark atmosphere.
+    const vignette = ctx.createRadialGradient(
+        centerX,
+        centerY,
+        Math.min(canvasWidth, canvasHeight) * 0.22,
+        centerX,
+        centerY,
+        Math.max(canvasWidth, canvasHeight) * 0.7
+    );
+    vignette.addColorStop(0, "rgba(0, 0, 0, 0)");
+    vignette.addColorStop(1, "rgba(0, 0, 0, 0.32)");
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 }
 
-function drawRingGroup(segments, tension, separation, rotation) {
+function drawRingGroup(segments, tension, separation, rotation, maxExpansion) {
     ctx.save();
     ctx.rotate(rotation);
     ctx.lineWidth = 2.5;
 
     segments.forEach(function(segment, index) {
         const middleAngle = (segment.start + segment.end) / 2;
-        const fragmentShift = tension * (4 + (index % 3) * 4);
+        const fragmentShift = tension * maxExpansion *
+            (0.05 + (index % 3) * 0.035);
         const shiftX = Math.cos(middleAngle) * fragmentShift;
         const shiftY = Math.sin(middleAngle) * fragmentShift;
 
@@ -254,9 +303,11 @@ function drawPointGroup(points, separation, rotation) {
     ctx.restore();
 }
 
-function drawRings(tension, breathing) {
-    const outerSeparation = tension * 42;
-    const innerSeparation = tension * 30;
+function drawRings(tension, breathing, maxExpansion) {
+    // The curve makes 25% tension visible while retaining the exact calm state.
+    const expansionProgress = Math.pow(tension, 0.78);
+    const outerSeparation = expansionProgress * maxExpansion;
+    const innerSeparation = expansionProgress * maxExpansion * 0.72;
     const outerRotation = tension * 0.24;
     const innerRotation = tension * -0.18;
     const outerSegments = ringSegments.filter(function(segment) {
@@ -273,8 +324,20 @@ function drawRings(tension, breathing) {
     });
 
     ctx.shadowBlur = 8 + breathing * 1.5 + tension * 24;
-    drawRingGroup(outerSegments, tension, outerSeparation, outerRotation);
-    drawRingGroup(innerSegments, tension, innerSeparation, innerRotation);
+    drawRingGroup(
+        outerSegments,
+        tension,
+        outerSeparation,
+        outerRotation,
+        maxExpansion
+    );
+    drawRingGroup(
+        innerSegments,
+        tension,
+        innerSeparation,
+        innerRotation,
+        maxExpansion
+    );
     drawPointGroup(outerPoints, outerSeparation, outerRotation);
     drawPointGroup(innerPoints, innerSeparation, innerRotation);
 }
@@ -296,6 +359,11 @@ function drawSigil(centerX, centerY, breathing, tension) {
         1.35,
         Math.max(0.85, Math.min(canvasWidth, canvasHeight) / 440)
     );
+    const visibleRadius = Math.min(canvasHeight * 0.44, canvasWidth * 0.38);
+    const maxExpansion = Math.max(
+        0,
+        Math.min(130, visibleRadius / responsiveScale - 100)
+    );
 
     ctx.save();
     ctx.translate(centerX, centerY);
@@ -306,10 +374,26 @@ function drawSigil(centerX, centerY, breathing, tension) {
     ctx.lineCap = "round";
     ctx.shadowColor = "rgba(234, 216, 182, 0.65)";
 
-    drawRings(tension, breathing);
+    drawRings(tension, breathing, maxExpansion);
     drawCross(breathing, tension);
 
     ctx.restore();
+}
+
+let displayedPercentage = -1;
+
+function updateTensionMeter(tension) {
+    const percentage = Math.round(tension * 100);
+
+    tensionFill.style.transform = `scaleY(${tension})`;
+    tensionFill.style.opacity = 0.4 + tension * 0.6;
+    tensionValue.style.opacity = 0.4 + tension * 0.6;
+
+    if (percentage !== displayedPercentage) {
+        tensionValue.value = `${percentage}%`;
+        tensionValue.textContent = `${percentage}%`;
+        displayedPercentage = percentage;
+    }
 }
 
 function drawSystem(time) {
@@ -322,6 +406,7 @@ function drawSystem(time) {
 
     drawAtmosphere(centerX, centerY, breathing, tension);
     drawSigil(centerX, centerY, breathing, tension);
+    updateTensionMeter(tension);
 
     requestAnimationFrame(drawSystem);
 }

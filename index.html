@@ -14,7 +14,17 @@
         <p class="subtitle">SELF AS SYSTEM</p>
 
         <section class="test">
-            <canvas id="systemCanvas"></canvas>
+            <div class="canvas-composition">
+                <canvas id="systemCanvas"></canvas>
+
+                <aside class="tension-meter" aria-label="Current system tension">
+                    <span class="tension-label">Tension</span>
+                    <output id="tensionValue">0%</output>
+                    <div class="tension-track" aria-hidden="true">
+                        <div id="tensionFill"></div>
+                    </div>
+                </aside>
+            </div>
 
             <div class="system-panel">
                 <h2>System Name</h2>

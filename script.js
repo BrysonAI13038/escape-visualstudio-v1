@@ -121,13 +121,14 @@ function analyzeMotion(time) {
                 )
             );
 
-            // Preserve the dead zone while making meaningful motion more legible.
-            const mappedMotion = Math.pow(detectedMotion, 0.72);
+            // Suppress small camera noise while keeping deliberate movement clear.
+            const mappedMotion =
+                detectedMotion * detectedMotion * (3 - 2 * detectedMotion);
 
             if (mappedMotion > systemState.targetTension) {
                 // Fast attack: meaningful increases register almost immediately.
                 systemState.targetTension +=
-                    (mappedMotion - systemState.targetTension) * 0.82;
+                    (mappedMotion - systemState.targetTension) * 0.72;
                 peakHoldUntil = time + PEAK_HOLD_DURATION;
             } else if (
                 mappedMotion > 0.08 &&
@@ -172,7 +173,7 @@ function updateTension(time) {
     const isIncreasing = systemState.targetTension > systemState.tension;
     // Sustained motion builds tension progressively; stillness releases it
     // more slowly so the system settles with intention.
-    const responseRate = isIncreasing ? 1.8 : 0.42;
+    const responseRate = isIncreasing ? 2.6 : 0.38;
     const smoothing = 1 - Math.exp(-responseRate * elapsed);
 
     systemState.tension +=
@@ -191,29 +192,14 @@ function updateTension(time) {
 // 5. DRAWING
 // ========================================
 
-// The original two-ring segment pattern.
-const ringSegments = [
-    { radius: 88, start: -2.95, end: -1.70 },
-    { radius: 88, start: -1.42, end: -0.55 },
-    { radius: 88, start: -0.34, end: 0.33 },
-    { radius: 88, start: 0.58, end: 1.48 },
-    { radius: 88, start: 1.79, end: 2.62 },
-    { radius: 88, start: 2.82, end: 3.38 },
-    { radius: 72, start: -2.72, end: -1.78 },
-    { radius: 72, start: -1.35, end: -0.63 },
-    { radius: 72, start: -0.39, end: 0.18 },
-    { radius: 72, start: 0.47, end: 1.31 },
-    { radius: 72, start: 1.73, end: 2.46 },
-    { radius: 72, start: 2.75, end: 3.28 }
+// Three ordered sections form one enclosure with an intentional exit at right.
+const enclosureSegments = [
+    { start: 0.46, end: 2.08, rotationDirection: 0.72, drift: 0.74 },
+    { start: 2.20, end: 3.82, rotationDirection: -0.48, drift: 0.92 },
+    { start: 3.94, end: 5.82, rotationDirection: 0.58, drift: 0.82 }
 ];
 
-const ringPoints = [
-    { x: 0, y: -103, radius: 3.5 },
-    { x: 98, y: 0, radius: 3 },
-    { x: 0, y: 104, radius: 1.7 },
-    { x: -98, y: 0, radius: 3 },
-    { x: 0, y: -83, radius: 2 }
-];
+const ENCLOSURE_RADIUS = 88;
 
 function drawAtmosphere(centerX, centerY, breathing, tension) {
     ctx.fillStyle = BACKGROUND;
@@ -253,91 +239,35 @@ function drawAtmosphere(centerX, centerY, breathing, tension) {
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 }
 
-function drawRingGroup(segments, tension, separation, rotation, maxExpansion) {
-    ctx.save();
-    ctx.rotate(rotation);
-    ctx.lineWidth = 2.5;
+function drawEnclosure(tension, breathing, maxExpansion) {
+    // A continuous S-curve keeps low tension quiet, clarifies the middle range,
+    // and lets sustained high tension reach the full existing response.
+    const response = tension * tension * (3 - 2 * tension);
+    const separation = response * maxExpansion;
+    const rotation = response * 0.62;
 
-    segments.forEach(function(segment, index) {
+    ctx.lineWidth = 2.5;
+    ctx.shadowBlur = 8 + breathing * 1.5 + tension * 24;
+
+    enclosureSegments.forEach(function(segment) {
         const middleAngle = (segment.start + segment.end) / 2;
-        const fragmentShift = tension * maxExpansion *
-            (0.05 + (index % 3) * 0.035);
+        const fragmentShift = separation * segment.drift;
         const shiftX = Math.cos(middleAngle) * fragmentShift;
         const shiftY = Math.sin(middleAngle) * fragmentShift;
 
+        ctx.save();
+        ctx.rotate(rotation * segment.rotationDirection);
         ctx.beginPath();
         ctx.arc(
             shiftX,
             shiftY,
-            segment.radius + separation,
+            ENCLOSURE_RADIUS,
             segment.start,
             segment.end
         );
         ctx.stroke();
+        ctx.restore();
     });
-
-    ctx.restore();
-}
-
-function drawPointGroup(points, separation, rotation) {
-    ctx.save();
-    ctx.rotate(rotation);
-
-    points.forEach(function(point) {
-        const distance = Math.hypot(point.x, point.y);
-        const scale = distance === 0 ? 1 : (distance + separation) / distance;
-
-        ctx.beginPath();
-        ctx.arc(
-            point.x * scale,
-            point.y * scale,
-            point.radius,
-            0,
-            Math.PI * 2
-        );
-        ctx.fill();
-    });
-
-    ctx.restore();
-}
-
-function drawRings(tension, breathing, maxExpansion) {
-    // The curve makes 25% tension visible while retaining the exact calm state.
-    const expansionProgress = Math.pow(tension, 0.78);
-    const outerSeparation = expansionProgress * maxExpansion;
-    const innerSeparation = expansionProgress * maxExpansion * 0.72;
-    const outerRotation = tension * 0.24;
-    const innerRotation = tension * -0.18;
-    const outerSegments = ringSegments.filter(function(segment) {
-        return segment.radius === 88;
-    });
-    const innerSegments = ringSegments.filter(function(segment) {
-        return segment.radius === 72;
-    });
-    const outerPoints = ringPoints.filter(function(point) {
-        return Math.hypot(point.x, point.y) > 90;
-    });
-    const innerPoints = ringPoints.filter(function(point) {
-        return Math.hypot(point.x, point.y) <= 90;
-    });
-
-    ctx.shadowBlur = 8 + breathing * 1.5 + tension * 24;
-    drawRingGroup(
-        outerSegments,
-        tension,
-        outerSeparation,
-        outerRotation,
-        maxExpansion
-    );
-    drawRingGroup(
-        innerSegments,
-        tension,
-        innerSeparation,
-        innerRotation,
-        maxExpansion
-    );
-    drawPointGroup(outerPoints, outerSeparation, outerRotation);
-    drawPointGroup(innerPoints, innerSeparation, innerRotation);
 }
 
 function drawCross(breathing, tension) {
@@ -372,7 +302,7 @@ function drawSigil(centerX, centerY, breathing, tension) {
     ctx.lineCap = "round";
     ctx.shadowColor = "rgba(234, 216, 182, 0.65)";
 
-    drawRings(tension, breathing, maxExpansion);
+    drawEnclosure(tension, breathing, maxExpansion);
     drawCross(breathing, tension);
 
     ctx.restore();

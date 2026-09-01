@@ -11,3 +11,6 @@
 
 - Removed the visible tension meter so the sigil must communicate tension through its behavior instead of numbers.
 - Kept the camera input and existing tension system unchanged to isolate the effect of the subtraction. 
+
+- Redesigned the sigil so the stable cross acts as the center while the surrounding enclosure represents pressure and distraction.
+- Tightened the existing camera response so movement creates a clearer change between calm and high tension without adding a new behavior.

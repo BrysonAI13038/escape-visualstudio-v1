@@ -8,3 +8,6 @@
 
 - Finalized the atmosphere with a restrained dark environment, breathing glow, and stable central cross.
 - Kept the atmosphere simple so the camera-controlled tension remains the main focus of the system.
+
+- Removed the visible tension meter so the sigil must communicate tension through its behavior instead of numbers.
+- Kept the camera input and existing tension system unchanged to isolate the effect of the subtraction. 

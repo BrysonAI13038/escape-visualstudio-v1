@@ -36,68 +36,12 @@ h1 {
     margin-top: 72px;
 }
 
-.canvas-composition {
-    position: relative;
-}
-
 #systemCanvas {
     display: block;
     width: 100%;
     height: 600px;
     background: #050505;
     border: 1px solid #242424;
-}
-
-.tension-meter {
-    position: absolute;
-    top: 50%;
-    right: 24px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    color: #777777;
-    pointer-events: none;
-    transform: translateY(-50%);
-}
-
-.tension-label {
-    font-size: 9px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-}
-
-#tensionValue {
-    min-width: 38px;
-    margin: 12px 0;
-    color: #ead8b6;
-    font: inherit;
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-align: center;
-    opacity: 0.4;
-}
-
-.tension-track {
-    position: relative;
-    width: 1px;
-    height: 180px;
-    overflow: hidden;
-    background: #343434;
-}
-
-#tensionFill {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 100%;
-    background: #ead8b6;
-    box-shadow: 0 0 6px rgba(234, 216, 182, 0.45);
-    opacity: 0.4;
-    transform: scaleY(0);
-    transform-origin: bottom;
 }
 
 .system-panel {
@@ -149,14 +93,6 @@ h1 {
         height: 420px;
     }
 
-    .tension-meter {
-        right: 16px;
-    }
-
-    .tension-track {
-        height: 130px;
-    }
-
     .system-panel {
         padding-top: 24px;
     }
@@ -167,15 +103,4 @@ h1 {
         height: 320px;
     }
 
-    .tension-meter {
-        right: 10px;
-    }
-
-    .tension-label {
-        letter-spacing: 1px;
-    }
-
-    .tension-track {
-        height: 90px;
-    }
 }

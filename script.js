@@ -9,8 +9,6 @@
 
 const canvas = document.getElementById("systemCanvas");
 const ctx = canvas.getContext("2d");
-const tensionValue = document.getElementById("tensionValue");
-const tensionFill = document.getElementById("tensionFill");
 const GOLD = "#ead8b6";
 const BACKGROUND = "#020202";
 
@@ -380,22 +378,6 @@ function drawSigil(centerX, centerY, breathing, tension) {
     ctx.restore();
 }
 
-let displayedPercentage = -1;
-
-function updateTensionMeter(tension) {
-    const percentage = Math.round(tension * 100);
-
-    tensionFill.style.transform = `scaleY(${tension})`;
-    tensionFill.style.opacity = 0.4 + tension * 0.6;
-    tensionValue.style.opacity = 0.4 + tension * 0.6;
-
-    if (percentage !== displayedPercentage) {
-        tensionValue.value = `${percentage}%`;
-        tensionValue.textContent = `${percentage}%`;
-        displayedPercentage = percentage;
-    }
-}
-
 function drawSystem(time) {
     updateTension(time);
 
@@ -406,7 +388,6 @@ function drawSystem(time) {
 
     drawAtmosphere(centerX, centerY, breathing, tension);
     drawSigil(centerX, centerY, breathing, tension);
-    updateTensionMeter(tension);
 
     requestAnimationFrame(drawSystem);
 }
